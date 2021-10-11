@@ -1,0 +1,72 @@
+version: '3.7'
+
+services:
+    nginx_mailservice:
+        restart: always
+        image: nginx:1.17
+        container_name: nginx_mailservice
+        ports:
+            - 80:80
+            #- 6001:6001
+        volumes:
+            - ${WWW_DIR}:${WWW_DIR_CONTAINER}
+            - ${NGINX_LOG}:${NGINX_LOG_CONTAINER}
+            - ${NGINX_DIR}:${NGINX_DIR_CONTAINER}
+        links:
+            - php_mailservice
+        networks:
+            app_net_mailservice:
+                ipv4_address: 172.36.0.2
+
+    php_mailservice:
+        build: ${PHP_DIR}
+        container_name: php_mailservice
+        ports:
+            - 9000:9000
+            - 6001:6001
+        volumes:
+            - ${PHP_LOG}/access.log:/var/log/access.log
+            - ${PHP_LOG}/error.log:/var/log/error.log
+            - ${WWW_DIR}:${WWW_DIR_CONTAINER}
+        working_dir: ${WWW_DIR_CONTAINER}
+        networks:
+            app_net_mailservice:
+                ipv4_address: 172.36.0.3
+
+    db_mailservice:
+        image: postgres:13.1
+        container_name: db_mailservice
+        healthcheck:
+          test: [ "CMD", "pg_isready", "-q", "-d", "postgres", "-U", "root" ]
+          timeout: 45s
+          interval: 10s
+          retries: 10
+        volumes:
+            - ${DBDATA_DIR}:/var/lib/postgresql/data
+            - ./db:/docker-entrypoint-initdb.d/
+        ports:
+            - 5432:5432
+        restart: always
+        environment:
+            - POSTGRES_USER=root
+            - POSTGRES_PASSWORD=password
+            - APP_DB_USER=mailservice
+            - APP_DB_PASS=pass123
+            - APP_DB_NAME=mailservice
+        networks:
+            app_net_mailservice:
+                ipv4_address: 172.36.0.5
+                
+    composer_mailservice:
+        image: composer:2.1.9
+        volumes:
+            - ${WWW_DIR}:${WWW_DIR_CONTAINER}
+        working_dir: ${WWW_DIR_CONTAINER}
+        command: composer install
+
+networks:
+  app_net_mailservice:
+    driver: bridge
+    ipam:
+     config:
+       - subnet: 172.36.0.0/16
