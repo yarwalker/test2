@@ -25,19 +25,23 @@ class MailController extends Controller
      */
     public function index()
     {
-        $collection = EmailMessage::all();
-        if (request()->has('sort')) {
-            switch (request()->query('sort')) {
-                case 'createdAt':
-                    $collection = EmailMessage::select(['name', 'email', 'created_at'])->orderBy('created_at')->get();
-                    break;
-                case '-createdAt':
-                    $collection = EmailMessage::select(['name', 'email', 'created_at'])->orderByDesc('created_at')->get();
-                    break;
-            }
+
+        switch (request()->query('sort')) {
+            case 'createdAt':
+                $collection = EmailMessage::select(['name', 'email', 'created_at'])
+                    ->orderBy('created_at')
+                    ->paginate($this->perPage);
+                break;
+            case '-createdAt':
+                $collection = EmailMessage::select(['name', 'email', 'created_at'])
+                    ->orderByDesc('created_at')
+                    ->paginate($this->perPage);
+                break;
+            default:
+                $collection = EmailMessage::paginate($this->perPage);
         }
 
-        $email_messages = new EmailMessageCollection($collection->forPage(request()->query('page') ?? 1, $this->perPage));
+        $email_messages = new EmailMessageCollection($collection);
         return response()->json(compact('email_messages'));
     }
 
